@@ -118,15 +118,26 @@ class MultiDownloader:
                 thread.start()
             for thread in thread_list:
                 thread.join()
+        try:
+            actual_size = os.path.getsize(full_path)
+        except Exception as e:
+            actual_size = 0
+            self.logger.warning(f"get actual file size failed:, full_path: {full_path}, error: {e}")
         if os.path.exists(full_path) and os.path.getsize(full_path) == 0:
             self.logger.warning(f"file size is 0, remove, full_path:{full_path}")
             os.remove(full_path)
         total_time = time.time() - start_time
-        self.logger.info("download finish, total size %d Bytes (%.2f MB),total spent time: %.2f " % (
-            self.total_range, self.total_range / (1024 * 1024), total_time
+        self.logger.info("download finishing..........")
+        self.logger.info("total size %d Bytes (%.2f MB), actual file size %d Bytes, are they equal? %s" % (
+            self.total_range, self.total_range / (1024 * 1024), actual_size, self.total_range == actual_size,
+        ))
+        self.logger.info("total spent time: %.2f second, average download speed: %.2f MB/s" % (
+            total_time, actual_size / (1024 * 1024) / total_time
         ))
         if self.failed_thread_list:
             self.logger.info(f"failed_thread_list: {self.failed_thread_list}")
+        final_result = "download success!" if self.total_range == actual_size else "download failed"
+        self.logger.info(final_result)
 
 
 if __name__ == '__main__':
