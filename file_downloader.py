@@ -11,7 +11,8 @@ class MultiDownloader:
     def __init__(self, url, save_path=None, file_name=None, thread_count=10, headers=None):
         self.url = url
         self.headers = headers if isinstance(headers, dict) else dict()
-        self.save_path = save_path if save_path else "./multi_download"
+        current_file_path = os.path.dirname(os.path.abspath(__file__))
+        self.save_path = save_path if save_path else os.path.join(current_file_path, "multi_download")
         self.total_range = None
         self.logger = self.get_logger()
         self.get_resp_header_info()
