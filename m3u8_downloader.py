@@ -35,7 +35,7 @@ def get_user_agent():
 
 
 class M3U8Downloader:
-    def __init__(self, m3u8_url, save_dir, video_folder, merge_name):
+    def __init__(self, m3u8_url, save_dir, video_folder, merge_name, need_merge):
         self.m3u8_url = m3u8_url
         self.base_url = str(m3u8_url).rsplit("/", maxsplit=1)[0]
         self.to_download_url = list()
@@ -46,6 +46,7 @@ class M3U8Downloader:
         self.current_file_path = os.path.dirname(os.path.abspath(__file__))
         self.save_dir = save_dir if save_dir else os.path.join(self.current_file_path, "m3u8_download")
         self.video_folder = video_folder if video_folder else get_datetime_num()
+        self.need_merge = need_merge
         self.merge_name = merge_name if merge_name else "merge.ts"
         self.file_type = ".ts"
         self.logger = self.get_logger()
@@ -83,13 +84,14 @@ class M3U8Downloader:
                 raise Exception(f"matched key but algorithm ({key_alg}) is not AES-128")
             self.key_method = key_alg
             self.key_iv = keys[-1].iv
-            self.get_key(self.normalize_url(keys[-1].uri))
+            self.get_key(self.normalize_url(keys[-1].absolute_uri))
         self.to_download_url = [self.normalize_url(segment.uri) for segment in m3u8_obj.segments]
         self.logger.info(f"to_download_url: {self.to_download_url[:5]}")
         if self.to_download_url:
             self.file_type = os.path.splitext(self.to_download_url[0])[1]
 
     def get_key(self, key_url):
+        self.logger.info(f"key_url: {key_url}")
         headers = {
             "User-Agent": get_user_agent()
         }
@@ -159,7 +161,14 @@ class M3U8Downloader:
 
     def normalize_url(self, raw_url):
         if raw_url and not str(raw_url).startswith("http"):
-            raw_url = self.base_url + "/" + raw_url
+            last_find_str = ""
+            for i in range(1, len(raw_url) + 1):
+                start_str = raw_url[:i]
+                if self.base_url.rfind(start_str) == -1:
+                    break
+                else:
+                    last_find_str = start_str
+            raw_url = f"{self.base_url}{raw_url.replace(last_find_str, '')}"
         return raw_url
 
     def run(self):
@@ -178,7 +187,9 @@ class M3U8Downloader:
         self.logger.info(f"download_failed_dict: {self.download_failed_dict}")
         if self.download_failed_dict:
             self.logger.warning(f"{len(self.download_failed_dict)} video file download failed.")
-        self.merge_videos()
+            raise Exception(f"{len(self.download_failed_dict)} video file download failed.")
+        if self.need_merge:
+            self.merge_videos()
 
 
 if __name__ == '__main__':
@@ -192,6 +203,7 @@ if __name__ == '__main__':
         "m3u8_url": url,
         "save_dir": "",
         "video_folder": "",
+        "need_merge": True,
         "merge_name": "",
     }
     downloader = M3U8Downloader(**params_dict)
