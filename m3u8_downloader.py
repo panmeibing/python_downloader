@@ -31,11 +31,11 @@ def get_datetime_num():
 
 
 def get_user_agent():
-    return UserAgent(path="./resource/fake_useragent_0.1.11.json").random
+    return UserAgent(path="./utils/fake_useragent_0.1.11.json").random
 
 
 class M3U8Downloader:
-    def __init__(self, m3u8_url, save_dir, video_folder, merge_name, need_merge):
+    def __init__(self, m3u8_url, save_dir, video_folder, merge_name, ffmpeg_path):
         self.m3u8_url = m3u8_url
         self.base_url = str(m3u8_url).rsplit("/", maxsplit=1)[0]
         self.to_download_url = list()
@@ -46,7 +46,9 @@ class M3U8Downloader:
         self.current_file_path = os.path.dirname(os.path.abspath(__file__))
         self.save_dir = save_dir if save_dir else os.path.join(self.current_file_path, "m3u8_download")
         self.video_folder = video_folder if video_folder else get_datetime_num()
-        self.need_merge = need_merge
+        if not os.path.isabs(ffmpeg_path):
+            ffmpeg_path = os.path.join(self.current_file_path, ffmpeg_path)
+        self.ffmpeg_path = ffmpeg_path
         self.merge_name = merge_name if merge_name else "merge.ts"
         self.file_type = ".ts"
         self.logger = self.get_logger()
@@ -54,6 +56,7 @@ class M3U8Downloader:
         self.logger.info(f"init info save_dir: {self.save_dir}")
         self.logger.info(f"init info video_folder: {self.video_folder}")
         self.logger.info(f"init info current_file_path: {self.current_file_path}")
+        self.logger.info(f"init info ffmpeg_path: {self.ffmpeg_path}")
         self.logger.info(f"init info merge_name: {self.merge_name}")
 
     def get_logger(self):
@@ -142,7 +145,16 @@ class M3U8Downloader:
         if not os.path.exists(path):
             self.logger.warning(f"merge_videos canceled, the path({path}) is not exist")
             return
-        cmd = "copy /B {} {}".format(path + os.sep + "*", path + os.sep + self.merge_name)
+        if not os.path.exists(self.ffmpeg_path):
+            self.logger.warning("ffmpeg program file is not exist.please fix it")
+            return
+        with open(path + os.sep + "merge_file_list.txt", "w") as f:
+            for file in os.listdir(path):
+                if not file.endswith(self.file_type):
+                    continue
+                f.write("file " + "'" + path + os.sep + file + "'" + "\n")
+        cmd = "{} -f concat -safe 0 -i {} -c copy {}".format(
+            self.ffmpeg_path, path + os.sep + 'merge_file_list.txt', path + os.sep + self.merge_name)
         self.logger.info(f"merge cmd: {cmd}")
         res = os.system(cmd)
         if res:
@@ -188,12 +200,12 @@ class M3U8Downloader:
         if self.download_failed_dict:
             self.logger.warning(f"{len(self.download_failed_dict)} video file download failed.")
             raise Exception(f"{len(self.download_failed_dict)} video file download failed.")
-        if self.need_merge:
+        if self.ffmpeg_path:
             self.merge_videos()
 
 
 if __name__ == '__main__':
-    url = "https://xxx/index.m3u8"
+    url = "https://v3.dious.cc/20220409/5nL9VnNY/1500kb/hls/index.m3u8"
     save_path = ""
     if len(sys.argv) > 1 and str(sys.argv[1]).startswith("http"):
         url = sys.argv[1]
@@ -203,7 +215,7 @@ if __name__ == '__main__':
         "m3u8_url": url,
         "save_dir": "",
         "video_folder": "",
-        "need_merge": True,
+        "ffmpeg_path": "./utils/ffmpeg.exe",
         "merge_name": "",
     }
     downloader = M3U8Downloader(**params_dict)
