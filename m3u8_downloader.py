@@ -205,7 +205,7 @@ class M3U8Downloader:
 
 
 if __name__ == '__main__':
-    url = "https://v3.dious.cc/20220409/5nL9VnNY/1500kb/hls/index.m3u8"
+    url = "https://xxx/index.m3u8"
     save_path = ""
     if len(sys.argv) > 1 and str(sys.argv[1]).startswith("http"):
         url = sys.argv[1]
