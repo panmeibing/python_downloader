@@ -48,11 +48,13 @@ class MultiDownloader:
         return logger
 
     def get_resp_header_info(self):
-        res_header = requests.head(self.url, headers=self.headers).headers
+        res = requests.head(self.url, headers=self.headers, allow_redirects=True)
+        res_header = res.headers
         self.logger.info(f"get_resp_header_info() res_header: {res_header}")
         content_range = res_header.get("Content-Length", "0")
         self.total_range = int(content_range)
         self.file_name = res_header.get("Content-Disposition", "").replace("attachment;filename=", "").replace('"', '')
+        self.url = res.url
 
     def page_dispatcher(self, content_size):
         page_size = content_size // self.thread_count
