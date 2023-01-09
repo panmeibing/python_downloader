@@ -35,7 +35,7 @@ def get_user_agent():
 
 
 class M3U8Downloader:
-    def __init__(self, m3u8_url, save_dir, video_folder, merge_name, ffmpeg_path):
+    def __init__(self, m3u8_url, save_dir, video_folder, headers, if_random_ug, merge_name, ffmpeg_path):
         self.m3u8_url = m3u8_url
         self.base_url = str(m3u8_url).rsplit("/", maxsplit=1)[0]
         self.to_download_url = list()
@@ -48,16 +48,26 @@ class M3U8Downloader:
         self.video_folder = video_folder if video_folder else get_datetime_num()
         if not os.path.isabs(ffmpeg_path):
             ffmpeg_path = os.path.join(self.current_file_path, ffmpeg_path)
+        self.headers = headers if isinstance(headers, dict) else dict()
+        self.if_random_ug = if_random_ug if isinstance(if_random_ug, bool) else True
         self.ffmpeg_path = ffmpeg_path
         self.merge_name = merge_name if merge_name else "merge.ts"
         self.file_type = ".ts"
         self.logger = self.get_logger()
         self.logger.info(f"init info url: {self.m3u8_url}")
+        self.logger.info(f"init info if_random_ug: {self.if_random_ug}")
+        self.logger.info(f"init info headers: {self.headers}")
         self.logger.info(f"init info save_dir: {self.save_dir}")
         self.logger.info(f"init info video_folder: {self.video_folder}")
         self.logger.info(f"init info current_file_path: {self.current_file_path}")
         self.logger.info(f"init info ffmpeg_path: {self.ffmpeg_path}")
         self.logger.info(f"init info merge_name: {self.merge_name}")
+
+    def get_headers(self):
+        headers = self.headers
+        if self.if_random_ug:
+            headers.update({"User-Agent": get_user_agent()})
+        return headers
 
     def get_logger(self):
         logger = logging.getLogger("M3U8Downloader")
@@ -76,10 +86,7 @@ class M3U8Downloader:
         return logger
 
     def get_m3u8_info(self):
-        headers = {
-            "User-Agent": get_user_agent()
-        }
-        m3u8_obj = m3u8.load(self.m3u8_url, timeout=10, headers=headers)
+        m3u8_obj = m3u8.load(self.m3u8_url, timeout=10, headers=self.get_headers())
         keys = m3u8_obj.keys
         if keys and keys[-1]:
             key_alg = keys[-1].method
@@ -95,24 +102,18 @@ class M3U8Downloader:
 
     def get_key(self, key_url):
         self.logger.info(f"key_url: {key_url}")
-        headers = {
-            "User-Agent": get_user_agent()
-        }
-        res = requests.get(key_url, headers=headers, timeout=10)
+        res = requests.get(key_url, headers=self.get_headers(), timeout=10)
         self.key_str = res.text
         if not self.key_str:
             raise Exception("get key error, key: {}".format(self.key_str))
         self.logger.info(f"get_key key_str: {self.key_str}")
 
     def download_video(self, number, url):
-        headers = {
-            "User-Agent": get_user_agent()
-        }
         trt_times = 10
         res_content = None
         while trt_times > 0:
             try:
-                res = requests.get(url, headers=headers, timeout=10, stream=True)
+                res = requests.get(url, headers=self.get_headers(), timeout=10, stream=True)
                 if res.status_code == 200:
                     res_content = res.content
                     break
@@ -206,7 +207,6 @@ class M3U8Downloader:
 
 if __name__ == '__main__':
     url = "https://xxx/index.m3u8"
-    save_path = ""
     if len(sys.argv) > 1 and str(sys.argv[1]).startswith("http"):
         url = sys.argv[1]
     if not url:
@@ -215,6 +215,13 @@ if __name__ == '__main__':
         "m3u8_url": url,
         "save_dir": "",
         "video_folder": "",
+        "headers": {
+            # "Host": "",
+            # "Cookie": "",
+            # "Referer": "",
+            # "User-Agent": "",
+        },
+        "if_random_user_agent": True,
         "ffmpeg_path": "./utils/ffmpeg.exe",
         "merge_name": "",
     }
