@@ -3,7 +3,7 @@ import os.path
 import sys
 import time
 from datetime import datetime
-from threading import Thread
+from threading import Thread, BoundedSemaphore
 
 import requests
 from Crypto.Cipher import AES
@@ -19,7 +19,7 @@ import m3u8
 
 
 def decode_video(video_stream, key, iv):
-    if iv:
+    if iv and iv and str(iv).startswith("0x") and int(iv, 16):
         aes = AES.new(bytes(key, encoding='utf8'), AES.MODE_CBC, bytes(iv, encoding='utf8'))
     else:
         aes = AES.new(bytes(key, encoding='utf8'), AES.MODE_CBC, bytes(key, encoding='utf8'))
@@ -35,7 +35,7 @@ def get_user_agent():
 
 
 class M3U8Downloader:
-    def __init__(self, m3u8_url, save_dir, video_folder, headers, if_random_ug, merge_name, ffmpeg_path):
+    def __init__(self, m3u8_url, save_dir, video_folder, headers, if_random_ug, merge_name, ffmpeg_path, sp_count):
         self.m3u8_url = m3u8_url
         self.base_url = str(m3u8_url).rsplit("/", maxsplit=1)[0]
         self.to_download_url = list()
@@ -53,6 +53,7 @@ class M3U8Downloader:
         self.ffmpeg_path = ffmpeg_path
         self.merge_name = merge_name if merge_name else "merge.ts"
         self.file_type = ".ts"
+        self.semaphore = BoundedSemaphore(sp_count) if sp_count else None
         self.logger = self.get_logger()
         self.logger.info(f"init info url: {self.m3u8_url}")
         self.logger.info(f"init info if_random_ug: {self.if_random_ug}")
@@ -96,7 +97,7 @@ class M3U8Downloader:
             self.key_iv = keys[-1].iv
             self.get_key(self.normalize_url(keys[-1].absolute_uri))
         self.to_download_url = [self.normalize_url(segment.uri) for segment in m3u8_obj.segments]
-        self.logger.info(f"to_download_url: {self.to_download_url[:5]}")
+        self.logger.info(f"to_download_url: {len(self.to_download_url)} {self.to_download_url[:5]}")
         if self.to_download_url:
             self.file_type = os.path.splitext(self.to_download_url[0])[1]
 
@@ -109,16 +110,18 @@ class M3U8Downloader:
         self.logger.info(f"get_key key_str: {self.key_str}")
 
     def download_video(self, number, url):
+        if self.semaphore:
+            self.semaphore.acquire()
         trt_times = 10
         res_content = None
         while trt_times > 0:
             try:
-                res = requests.get(url, headers=self.get_headers(), timeout=10, stream=True)
+                res = requests.get(url, timeout=10, stream=True)
                 if res.status_code == 200:
                     res_content = res.content
                     break
             except Exception as e:
-                self.logger.error(f"download failed, will try again: {e}")
+                self.logger.error(f"download failed, will try again: url:{url} ,error:{e}")
                 res_content = None
             trt_times -= 1
             time.sleep(1)
@@ -128,10 +131,12 @@ class M3U8Downloader:
             path = os.path.join(self.save_dir, self.video_folder, "{0:0>8}".format(number) + str(self.file_type))
             with open(path, "wb+") as f:
                 f.write(res_content)
-                self.logger.info(f"download video {path} success, url: {url}")
+                self.logger.info(f"download video {path} (total: {len(self.to_download_url)}) success, url: {url}")
         else:
             self.logger.warning(f"download video failed, number:{number},url:{url}")
             self.download_failed_dict.update({number: url})
+        if self.semaphore:
+            self.semaphore.release()
 
     def merge_videos(self):
         if os.name != "nt":
@@ -173,6 +178,8 @@ class M3U8Downloader:
         self.logger.info(f"make video_folder({video_folder}) success.")
 
     def normalize_url(self, raw_url):
+        if raw_url and raw_url.startswith("http") and any([raw_url.endswith(".ts"), raw_url.endswith(".key")]):
+            return raw_url
         if raw_url and not str(raw_url).startswith("http"):
             last_find_str = ""
             for i in range(1, len(raw_url) + 1):
@@ -181,7 +188,11 @@ class M3U8Downloader:
                     break
                 else:
                     last_find_str = start_str
-            raw_url = f"{self.base_url}{raw_url.replace(last_find_str, '')}"
+            sep = "" if self.base_url.endswith("/") or raw_url.startswith("/") else "/"
+            if self.base_url.endswith(last_find_str):
+                raw_url = f"{self.base_url}{sep}{raw_url.replace(last_find_str, '')}"
+            else:
+                raw_url = f"{self.base_url}{sep}{raw_url}"
         return raw_url
 
     def run(self):
@@ -221,9 +232,10 @@ if __name__ == '__main__':
             # "Referer": "",
             # "User-Agent": "",
         },
-        "if_random_user_agent": True,
+        "if_random_ug": True,
         "ffmpeg_path": "./utils/ffmpeg.exe",
         "merge_name": "",
+        "sp_count": 2,
     }
     downloader = M3U8Downloader(**params_dict)
     downloader.run()

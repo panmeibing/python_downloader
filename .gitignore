@@ -3,7 +3,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+m3u8_download/
+multi_download/
+*_download/
 # C extensions
 *.so
 
