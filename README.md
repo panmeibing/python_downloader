@@ -37,4 +37,5 @@ pip install requests
 pip install fake_useragent
 pip install m3u8
 pip install pycryptodome
+pip install tqdm
 ```
