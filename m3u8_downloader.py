@@ -37,10 +37,11 @@ def get_user_agent():
 
 
 class M3U8Downloader:
-    def __init__(self, m3u8_url, save_dir, video_folder, headers, if_random_ug, merge_name, ffmpeg_path, sp_count):
+    def __init__(self, m3u8_url, base_url, save_dir, video_folder, headers, if_random_ug, merge_name, ffmpeg_path,
+                 sp_count):
         self.tqdm = None
         self.m3u8_url = m3u8_url
-        self.base_url = str(m3u8_url).rsplit("/", maxsplit=1)[0]
+        self.base_url = base_url if base_url and base_url.startswith("http") else m3u8_url.rsplit("/", maxsplit=1)[0]
         self.to_download_url = list()
         self.download_failed_dict = dict()
         self.key_method = None
@@ -184,7 +185,8 @@ class M3U8Downloader:
         self.logger.info(f"make video_folder({video_folder}) success.")
 
     def normalize_url(self, raw_url):
-        if raw_url and raw_url.startswith("http") and any([raw_url.endswith(".ts"), raw_url.endswith(".key")]):
+        if raw_url and raw_url.startswith("http") and any(
+                [raw_url.split("?")[0].endswith(".ts"), raw_url.split("?")[0].endswith(".key")]):
             return raw_url
         if raw_url and not str(raw_url).startswith("http"):
             last_find_str = ""
@@ -232,6 +234,7 @@ if __name__ == '__main__':
         raise Exception("missing download url")
     params_dict = {
         "m3u8_url": url,
+        "base_url": "",
         "save_dir": "",
         "video_folder": "",
         "headers": {
@@ -245,5 +248,7 @@ if __name__ == '__main__':
         "merge_name": "",
         "sp_count": 2,
     }
+    if os.path.isfile(params_dict["m3u8_url"]) and not params_dict["base_url"]:
+        raise Exception("the m3u8 file is a local file but miss base_url")
     downloader = M3U8Downloader(**params_dict)
     downloader.run()
