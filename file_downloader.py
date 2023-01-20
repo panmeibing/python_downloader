@@ -8,7 +8,7 @@ import requests
 
 
 class MultiDownloader:
-    def __init__(self, url, save_path=None, file_name=None, thread_count=10, headers=None):
+    def __init__(self, url, save_path=None, file_name=None, thread_count=10, headers=None, retry_times=10):
         self.url = url
         self.headers = headers if isinstance(headers, dict) else dict()
         current_file_path = os.path.dirname(os.path.abspath(__file__))
@@ -20,6 +20,7 @@ class MultiDownloader:
             self.file_name = file_name
         if not self.file_name:
             self.file_name = os.path.split(url)[1]
+        self.retry_times = retry_times
         self.file_lock = threading.Lock()
         self.thread_count = thread_count
         self.failed_thread_list = list()
@@ -76,9 +77,8 @@ class MultiDownloader:
         range_headers.update(self.headers)
         try:
             start_time = time.time()
-            try_times = 3
             is_success = False
-            for i in range(try_times):
+            for i in range(self.retry_times):
                 try:
                     with closing(requests.get(url=self.url, headers=range_headers, stream=True, timeout=30)) as res:
                         self.logger.info(f"thread {thread_name} download length: {len(res.content)}")
@@ -99,7 +99,7 @@ class MultiDownloader:
                     thread_name, spent_time, self.finished_thread_count, self.thread_count
                 ))
             else:
-                self.logger.error(f"thread {thread_name} download {try_times} times but failed")
+                self.logger.error(f"thread {thread_name} download {self.retry_times} times but failed")
                 self.failed_thread_list.append(thread_name)
         except Exception as e:
             self.logger.error(f"thread {thread_name} download failed: {e}")
@@ -151,7 +151,8 @@ if __name__ == '__main__':
         "headers": {
             # "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
         },
-        "thread_count": 10
+        "thread_count": 10,
+        "retry_times": 10,
     }
 
     downloader = MultiDownloader(**params)

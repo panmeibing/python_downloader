@@ -10,12 +10,14 @@ from Crypto.Cipher import AES
 from fake_useragent import UserAgent
 
 import m3u8
+from tqdm import tqdm
 
 
 # pip install requests
 # pip install fake-useragent==0.1.11
 # pip install m3u8
 # pip install pycryptodome
+# pip install tqdm
 
 
 def decode_video(video_stream, key, iv):
@@ -36,6 +38,7 @@ def get_user_agent():
 
 class M3U8Downloader:
     def __init__(self, m3u8_url, save_dir, video_folder, headers, if_random_ug, merge_name, ffmpeg_path, sp_count):
+        self.tqdm = None
         self.m3u8_url = m3u8_url
         self.base_url = str(m3u8_url).rsplit("/", maxsplit=1)[0]
         self.to_download_url = list()
@@ -97,7 +100,8 @@ class M3U8Downloader:
             self.key_iv = keys[-1].iv
             self.get_key(self.normalize_url(keys[-1].absolute_uri))
         self.to_download_url = [self.normalize_url(segment.uri) for segment in m3u8_obj.segments]
-        self.logger.info(f"to_download_url: {len(self.to_download_url)} {self.to_download_url[:5]}")
+        self.logger.info(f"to_download_url: {len(self.to_download_url)} {self.to_download_url[:5]}, ...")
+        self.tqdm = tqdm(total=len(self.to_download_url), desc="download progress")
         if self.to_download_url:
             self.file_type = os.path.splitext(self.to_download_url[0])[1]
 
@@ -131,7 +135,9 @@ class M3U8Downloader:
             path = os.path.join(self.save_dir, self.video_folder, "{0:0>8}".format(number) + str(self.file_type))
             with open(path, "wb+") as f:
                 f.write(res_content)
-                self.logger.info(f"download video {path} (total: {len(self.to_download_url)}) success, url: {url}")
+                # self.logger.info(f"download video {path} (total: {len(self.to_download_url)}) success, url: {url}")
+            if self.tqdm:
+                self.tqdm.update(1)
         else:
             self.logger.warning(f"download video failed, number:{number},url:{url}")
             self.download_failed_dict.update({number: url})
@@ -214,6 +220,8 @@ class M3U8Downloader:
             raise Exception(f"{len(self.download_failed_dict)} video file download failed.")
         if self.ffmpeg_path:
             self.merge_videos()
+        if self.tqdm:
+            self.tqdm.close()
 
 
 if __name__ == '__main__':
