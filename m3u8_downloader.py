@@ -103,7 +103,7 @@ class M3U8Downloader:
         self.logger.info(f"to_download_url: {len(self.to_download_url)} {self.to_download_url[:5]}, ...")
         self.tqdm = tqdm(total=len(self.to_download_url), desc="download progress")
         if self.to_download_url:
-            self.file_type = os.path.splitext(self.to_download_url[0])[1]
+            self.file_type = os.path.splitext(self.to_download_url[0].split("?")[0])[1]
 
     def get_key(self, key_url):
         self.logger.info(f"key_url: {key_url}")
