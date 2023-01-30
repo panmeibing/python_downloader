@@ -38,8 +38,9 @@ def get_user_agent():
 
 class M3U8Downloader:
     def __init__(self, m3u8_url, base_url, save_dir, video_folder, headers, if_random_ug, merge_name, ffmpeg_path,
-                 sp_count):
+                 sp_count, if_tqdm):
         self.tqdm = None
+        self.if_tqdm = if_tqdm
         self.m3u8_url = m3u8_url
         self.base_url = base_url if base_url and base_url.startswith("http") else m3u8_url.rsplit("/", maxsplit=1)[0]
         self.to_download_url = list()
@@ -102,7 +103,7 @@ class M3U8Downloader:
             self.get_key(self.normalize_url(keys[-1].absolute_uri))
         self.to_download_url = [self.normalize_url(segment.uri) for segment in m3u8_obj.segments]
         self.logger.info(f"to_download_url: {len(self.to_download_url)} {self.to_download_url[:5]}, ...")
-        self.tqdm = tqdm(total=len(self.to_download_url), desc="download progress")
+        self.tqdm = tqdm(total=len(self.to_download_url), desc="download progress") if self.if_tqdm else None
         if self.to_download_url:
             self.file_type = os.path.splitext(self.to_download_url[0].split("?")[0])[1]
 
@@ -247,6 +248,7 @@ if __name__ == '__main__':
         "ffmpeg_path": "./utils/ffmpeg.exe",
         "merge_name": "",
         "sp_count": 2,
+        "if_tqdm": True,
     }
     if os.path.isfile(params_dict["m3u8_url"]) and not params_dict["base_url"]:
         raise Exception("the m3u8 file is a local file but miss base_url")
