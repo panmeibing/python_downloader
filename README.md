@@ -28,13 +28,13 @@ M3u8 is a way to transmit data. For example, a 20 minute full video is divided i
 
 - **m3u8 file**. M3u8 is generally a file ending in m3u8. If it is a browser, you can click F12 to open DevTools to capture the full link of m3u8. After downloading, extract the uri of all video segments. To facilitate operation, we can use the m3u8 library.
 - **Encryption**. Some m3u8 are encrypted, but the URL of the secret key will be given in the file. The secret key can be obtained upon request. The secret key is generally a string consisting of numbers and letters. The general encryption algorithm is AES-128. We need to use the pycryptodome library to decrypt the encrypted video.
-- **Merge videos**. The copy command provided with the Windows system can merge videos, but the merged videos may have problems, so it is recommended to use ffmpeg to merge.
+- **Merge videos**. The copy command provided with the Windows system can merge videos, but the merged videos may have problems, so it is recommended to use ffmpeg to merge.Of course, you can also merge videos by reading and writing binary files by Python
 
 #### lib
 
 ```python
 pip install requests
-pip install fake_useragent
+pip install fake-useragent==0.1.11 
 pip install m3u8
 pip install pycryptodome
 pip install tqdm

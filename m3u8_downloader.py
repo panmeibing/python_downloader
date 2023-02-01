@@ -69,6 +69,10 @@ class M3U8Downloader:
         self.logger.info(f"init info ffmpeg_path: {self.ffmpeg_path}")
         self.logger.info(f"init info merge_name: {self.merge_name}")
 
+    def __del__(self):
+        if self.tqdm:
+            self.tqdm.close()
+
     def get_headers(self):
         headers = self.headers
         if self.if_random_ug:
@@ -115,6 +119,15 @@ class M3U8Downloader:
             raise Exception("get key error, key: {}".format(self.key_str))
         self.logger.info(f"get_key key_str: {self.key_str}")
 
+    def test_download(self, d_url):
+        self.logger.info(f"test download url: {d_url}")
+        try:
+            res = requests.get(d_url, timeout=30)
+            return True if res.status_code < 300 else False
+        except Exception as e:
+            self.logger.error(f"test_download meet error: {e}")
+            return False
+
     def download_video(self, number, url):
         if self.semaphore:
             self.semaphore.acquire()
@@ -159,22 +172,38 @@ class M3U8Downloader:
         if not os.path.exists(path):
             self.logger.warning(f"merge_videos canceled, the path({path}) is not exist")
             return
-        if not os.path.exists(self.ffmpeg_path):
-            self.logger.warning("ffmpeg program file is not exist.please fix it")
+        self.logger.info(f"ffmpeg path: {self.ffmpeg_path}")
+        all_ts_files = os.listdir(path)
+        all_ts_files = [ts for ts in all_ts_files if ts.startswith("0") and ts.endswith(self.file_type)]
+        if not all_ts_files:
+            self.logger.warning(f"there is no {self.file_type} file need to merge")
             return
-        with open(path + os.sep + "merge_file_list.txt", "w") as f:
-            for file in os.listdir(path):
-                if not file.endswith(self.file_type):
-                    continue
-                f.write("file " + "'" + path + os.sep + file + "'" + "\n")
-        cmd = "{} -f concat -safe 0 -i {} -c copy {}".format(
-            self.ffmpeg_path, path + os.sep + 'merge_file_list.txt', path + os.sep + self.merge_name)
-        self.logger.info(f"merge cmd: {cmd}")
-        res = os.system(cmd)
-        if res:
-            self.logger.error("merge failed")
+        all_ts_files.sort(key=lambda x: x)
+        self.logger.info(f"ffmpeg path: {self.ffmpeg_path}")
+        if self.ffmpeg_path and os.path.exists(self.ffmpeg_path):
+            self.logger.info(f"use ffmpeg to merge")
+            with open(path + os.sep + "merge_file_list.txt", "w") as f:
+                for file in all_ts_files:
+                    f.write("file " + "'" + path + os.sep + file + "'" + "\n")
+            cmd = "{} -f concat -safe 0 -i {} -c copy {}".format(
+                self.ffmpeg_path, path + os.sep + 'merge_file_list.txt', path + os.sep + self.merge_name)
+            self.logger.info(f"merge cmd: {cmd}")
+            res = os.system(cmd)
+            if res:
+                self.logger.error("merge failed")
+            else:
+                self.logger.info("merge success")
         else:
-            self.logger.info("merge success")
+            self.logger.warning(f"ffmpeg not exist, will merge by python")
+            try:
+                with open(path + os.sep + self.merge_name, "wb+") as f:
+                    for ts_file in all_ts_files:
+                        with open(path + os.sep + ts_file, "rb+") as t:
+                            f.write(t.read())
+            except Exception as e:
+                self.logger.error(f"merge failed: {e}")
+            else:
+                self.logger.info("merge success")
 
     def mkdir(self):
         if not os.path.exists(self.save_dir):
@@ -207,8 +236,14 @@ class M3U8Downloader:
     def run(self):
         start_time = time.time()
         self.get_m3u8_info()
-        print(self.key_str)
-        print(self.key_method)
+        if not self.to_download_url:
+            self.logger.warning("there is no url to download, self.to_download_url is empty, please check url")
+            return
+        self.logger.info(f"self.key_str: {self.key_str}")
+        self.logger.info(f"self.key_method: {self.key_method}")
+        if not self.test_download(self.to_download_url[0]):
+            self.logger.warning(f"test download failed, pls check whether the url is valid ({self.to_download_url[0]})")
+            return
         self.mkdir()
         threads = [Thread(target=self.download_video, args=(idx, url)) for idx, url in enumerate(self.to_download_url)]
         for t in threads:
@@ -228,14 +263,14 @@ class M3U8Downloader:
 
 
 if __name__ == '__main__':
-    url = "https://xxx/index.m3u8"
+    url = r"C:\Users\admin\Desktop\test.m3u8"
     if len(sys.argv) > 1 and str(sys.argv[1]).startswith("http"):
         url = sys.argv[1]
     if not url:
         raise Exception("missing download url")
     params_dict = {
         "m3u8_url": url,
-        "base_url": "",
+        "base_url": "http://pcw-data.video.iqiyi.com/videos/vts/20211027/9b/7e",
         "save_dir": "",
         "video_folder": "",
         "headers": {

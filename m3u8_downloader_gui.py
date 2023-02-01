@@ -174,6 +174,10 @@ def check_params(values: dict):
     if save_dir and not os.path.exists(save_dir):
         sg.popup("请确认文件保存路径是否存在", title="警告")
         return False
+    if not ffmpeg_path and not os.path.exists("./utils/ffmpeg.exe"):
+        res = sg.popup_yes_no("未检测到ffmpeg程序，可能无法正常合并视频，是否忽略警告并继续？", title="警告")
+        if res == "No":
+            return False
     if ffmpeg_path and not os.path.exists(ffmpeg_path):
         sg.popup("请确认ffmpeg程序路径是否正确", title="警告")
         return False
