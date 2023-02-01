@@ -263,14 +263,14 @@ class M3U8Downloader:
 
 
 if __name__ == '__main__':
-    url = r"C:\Users\admin\Desktop\test.m3u8"
+    url = "https://xxx.test.m3u8"
     if len(sys.argv) > 1 and str(sys.argv[1]).startswith("http"):
         url = sys.argv[1]
     if not url:
         raise Exception("missing download url")
     params_dict = {
         "m3u8_url": url,
-        "base_url": "http://pcw-data.video.iqiyi.com/videos/vts/20211027/9b/7e",
+        "base_url": "",
         "save_dir": "",
         "video_folder": "",
         "headers": {
