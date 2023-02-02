@@ -19,6 +19,29 @@ from tqdm import tqdm
 # pip install pycryptodome
 # pip install tqdm
 
+class M3U8Loader:
+    def __init__(self, uri, base_url, segments):
+        self.uri = uri
+        self.base_url = base_url
+        self.segments = segments
+
+    @classmethod
+    def load(cls, uri, base_url=None):
+        if uri.startswith("http"):
+            res = requests.get(uri, headers={"User-Agent": get_user_agent()})
+            if res.status_code != 200:
+                raise Exception(f"load u3u8 failed when download file, uri: {uri}")
+            segments = res.text.split("\n")
+        else:
+            with open(uri, encoding="utf-8") as f:
+                segments = f.readlines()
+        if not base_url:
+            for line in segments:
+                if line.startswith("http"):
+                    base_url = os.path.split(line.split("?")[0])[0]
+        segments = [s.strip() for s in segments]
+        return M3U8Loader(uri, base_url, segments)
+
 
 def decode_video(video_stream, key, iv):
     if iv and iv and str(iv).startswith("0x") and int(iv, 16):
@@ -106,6 +129,11 @@ class M3U8Downloader:
             self.key_iv = keys[-1].iv
             self.get_key(self.normalize_url(keys[-1].absolute_uri))
         self.to_download_url = [self.normalize_url(segment.uri) for segment in m3u8_obj.segments]
+        self.to_download_url = [d_url for d_url in self.to_download_url if d_url]
+        if not self.to_download_url:
+            loader_obj = M3U8Loader.load(self.m3u8_url, self.base_url)
+            self.to_download_url = [self.normalize_url(segment) for segment in loader_obj.segments]
+            self.to_download_url = [d_url for d_url in self.to_download_url if d_url]
         self.logger.info(f"to_download_url: {len(self.to_download_url)} {self.to_download_url[:5]}, ...")
         self.tqdm = tqdm(total=len(self.to_download_url), desc="download progress") if self.if_tqdm else None
         if self.to_download_url:
@@ -122,7 +150,7 @@ class M3U8Downloader:
     def test_download(self, d_url):
         self.logger.info(f"test download url: {d_url}")
         try:
-            res = requests.get(d_url, timeout=30)
+            res = requests.get(d_url, timeout=30, headers=self.get_headers(), stream=True)
             return True if res.status_code < 300 else False
         except Exception as e:
             self.logger.error(f"test_download meet error: {e}")
@@ -215,6 +243,9 @@ class M3U8Downloader:
         self.logger.info(f"make video_folder({video_folder}) success.")
 
     def normalize_url(self, raw_url):
+        raw_url = raw_url.strip()
+        if raw_url.startswith("#"):
+            return
         if raw_url and raw_url.startswith("http") and any(
                 [raw_url.split("?")[0].endswith(".ts"), raw_url.split("?")[0].endswith(".key")]):
             return raw_url
@@ -227,7 +258,7 @@ class M3U8Downloader:
                 else:
                     last_find_str = start_str
             sep = "" if self.base_url.endswith("/") or raw_url.startswith("/") else "/"
-            if self.base_url.endswith(last_find_str):
+            if len(last_find_str) > 2 and self.base_url.endswith(last_find_str):
                 raw_url = f"{self.base_url}{sep}{raw_url.replace(last_find_str, '')}"
             else:
                 raw_url = f"{self.base_url}{sep}{raw_url}"
@@ -263,7 +294,7 @@ class M3U8Downloader:
 
 
 if __name__ == '__main__':
-    url = "https://xxx.test.m3u8"
+    url = "https://xxx/test.m3u8"
     if len(sys.argv) > 1 and str(sys.argv[1]).startswith("http"):
         url = sys.argv[1]
     if not url:
