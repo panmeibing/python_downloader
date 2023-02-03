@@ -166,11 +166,9 @@ def check_params(values: dict):
             sg.popup("请确认m3u8文件路径是否存在", title="警告")
             return False
         if not base_url:
-            sg.popup("请输入base_url", title="警告")
-            return False
-        if not base_url.startswith("http"):
-            sg.popup("请确认base_url链接是否正确", title="警告")
-            return False
+            res = sg.popup_yes_no("未填写base_url，程序将自动尝试获取，但不一定成功，是否忽略警告并继续？", title="警告")
+            if res == "No":
+                return False
     if save_dir and not os.path.exists(save_dir):
         sg.popup("请确认文件保存路径是否存在", title="警告")
         return False
@@ -208,10 +206,12 @@ def check_params(values: dict):
 
 
 def run():
-    window = sg.Window('M3U8下载器', get_layout(), size=(1200, 620), )
+    current_version = "v1.1.0"
+    ico_path = "./images/ico/m3u8_logo.ico"
+    window = sg.Window(f"M3U8下载器（{current_version}）", get_layout(), size=(1200, 620), icon=ico_path)
 
-    instructions = """1.若使用M3U8链接，确保url有效；
-2.若使用本地M3U8文档，需要填写正确的base_url；
+    instructions = f"""1.若使用M3U8链接，确保url有效；
+2.若使用本地M3U8文档，尽量填写正确的base_url；
 3.若不指定文档保存路径，默认保存在程序所以文件夹；
 4.本程序自带FFmpeg程序，一般无需指定路径；
 5.若要自定义请求头需要填写一个JSON；
@@ -219,6 +219,8 @@ def run():
 7.若遇到不能同时下载多个文件可以适当调小线程数（0是不限制）；
 该程序完全免费且开源，请勿用于商业用途
 GitHub：https://github.com/panmeibing/python_downloader
+
+当前版本: {current_version}
 """
 
     while True:
