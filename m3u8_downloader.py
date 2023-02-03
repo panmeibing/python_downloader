@@ -31,14 +31,20 @@ class M3U8Loader:
             res = requests.get(uri, headers={"User-Agent": get_user_agent()})
             if res.status_code != 200:
                 raise Exception(f"load u3u8 failed when download file, uri: {uri}")
-            segments = res.text.split("\n")
+            text = res.text.encode().decode('unicode_escape')
+            segments = text.split("\n")
         else:
             with open(uri, encoding="utf-8") as f:
-                segments = f.readlines()
+                segments = f.read()
+                segments = segments.encode().decode('unicode_escape')
+                segments = segments.split("\n")
         if not base_url:
             for line in segments:
                 if line.startswith("http"):
                     base_url = os.path.split(line.split("?")[0])[0]
+                    break
+        if not base_url and uri.startswith("http"):
+            base_url = str(uri).split("?")[0].rsplit("/", maxsplit=1)[0]
         segments = [s.strip() for s in segments]
         return M3U8Loader(uri, base_url, segments)
 
@@ -65,7 +71,7 @@ class M3U8Downloader:
         self.tqdm = None
         self.if_tqdm = if_tqdm
         self.m3u8_url = m3u8_url
-        self.base_url = base_url if base_url and base_url.startswith("http") else m3u8_url.rsplit("/", maxsplit=1)[0]
+        self.base_url = base_url if base_url else ""
         self.to_download_url = list()
         self.download_failed_dict = dict()
         self.key_method = None
@@ -83,7 +89,10 @@ class M3U8Downloader:
         self.file_type = ".ts"
         self.semaphore = BoundedSemaphore(sp_count) if sp_count else None
         self.logger = self.get_logger()
-        self.logger.info(f"init info url: {self.m3u8_url}")
+        self.normalize_m3u8_file(self.m3u8_url)
+        self.normalize_base_url()
+        self.logger.info(f"init info m3u8_url: {self.m3u8_url}")
+        self.logger.info(f"init info base_url: {self.base_url}")
         self.logger.info(f"init info if_random_ug: {self.if_random_ug}")
         self.logger.info(f"init info headers: {self.headers}")
         self.logger.info(f"init info save_dir: {self.save_dir}")
@@ -264,6 +273,27 @@ class M3U8Downloader:
                 raw_url = f"{self.base_url}{sep}{raw_url}"
         return raw_url
 
+    def normalize_m3u8_file(self, path):
+        if not os.path.exists(path):
+            return
+        with open(path, "r", encoding="utf-8") as f:
+            contents = f.read()
+            contents = contents.encode().decode('unicode_escape')
+            print()
+            with open(path, 'w', encoding='utf-8') as w:
+                w.write(contents.replace("'", "").replace('"', ''))
+                self.logger.info(f"normalize m3u8 file success, path: {path}")
+            return contents
+
+    def normalize_base_url(self):
+        if self.base_url and self.base_url.startswith('http'):
+            return
+        base_url = M3U8Loader.load(self.m3u8_url).base_url
+        if base_url:
+            self.base_url = base_url
+        else:
+            raise Exception("automatically identify base_url failed, please fill in manually")
+
     def run(self):
         start_time = time.time()
         self.get_m3u8_info()
@@ -294,7 +324,7 @@ class M3U8Downloader:
 
 
 if __name__ == '__main__':
-    url = "https://xxx/test.m3u8"
+    url = "http://valipl10.cp31.ott.cibntv.net/65750450B334371D4AE716612/03000900005BE7BAC05FFB42B2D3651239A89B-AF68-44B1-B03F-14E2B508905E.m3u8?ccode=0502&duration=2231&expire=18000&psid=e4463f9c553f39c4ed3c85e96cb4b52641346&ups_client_netip=da12056d&ups_ts=1675391222&ups_userid=711424756&utid=SWwwHG2jz1cCAdoSBSFBCLz6&vid=XMzYyNTA1NjkyMA%3D%3D&vkey=B7e3ce0fa35c9909e9b69e14ca48b03eb&s=14efbfbdd3a9efbfbd2f&iv=1&eo=1&t=d9c082f833366c4&cug=1&fms=5cba2f4b8ee05f54&tr=2231&le=627ea53a34a5e6a14068f1781d6e43fd&ckt=5&m_onoff=0&rid=20000000967FAA35ABCBC7360C6E8E20597FBFA902000000&type=mp4hd3v3&bc=2&dre=u151&si=573&dst=1&sm=1&operate_type=1"
     if len(sys.argv) > 1 and str(sys.argv[1]).startswith("http"):
         url = sys.argv[1]
     if not url:
@@ -316,7 +346,7 @@ if __name__ == '__main__':
         "sp_count": 2,
         "if_tqdm": True,
     }
-    if os.path.isfile(params_dict["m3u8_url"]) and not params_dict["base_url"]:
-        raise Exception("the m3u8 file is a local file but miss base_url")
+    # if os.path.isfile(params_dict["m3u8_url"]) and not params_dict["base_url"]:
+    #     raise Exception("the m3u8 file is a local file but miss base_url")
     downloader = M3U8Downloader(**params_dict)
     downloader.run()
