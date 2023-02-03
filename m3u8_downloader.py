@@ -324,7 +324,7 @@ class M3U8Downloader:
 
 
 if __name__ == '__main__':
-    url = "http://valipl10.cp31.ott.cibntv.net/65750450B334371D4AE716612/03000900005BE7BAC05FFB42B2D3651239A89B-AF68-44B1-B03F-14E2B508905E.m3u8?ccode=0502&duration=2231&expire=18000&psid=e4463f9c553f39c4ed3c85e96cb4b52641346&ups_client_netip=da12056d&ups_ts=1675391222&ups_userid=711424756&utid=SWwwHG2jz1cCAdoSBSFBCLz6&vid=XMzYyNTA1NjkyMA%3D%3D&vkey=B7e3ce0fa35c9909e9b69e14ca48b03eb&s=14efbfbdd3a9efbfbd2f&iv=1&eo=1&t=d9c082f833366c4&cug=1&fms=5cba2f4b8ee05f54&tr=2231&le=627ea53a34a5e6a14068f1781d6e43fd&ckt=5&m_onoff=0&rid=20000000967FAA35ABCBC7360C6E8E20597FBFA902000000&type=mp4hd3v3&bc=2&dre=u151&si=573&dst=1&sm=1&operate_type=1"
+    url = "https://test/index.m3u8"
     if len(sys.argv) > 1 and str(sys.argv[1]).startswith("http"):
         url = sys.argv[1]
     if not url:
