@@ -173,7 +173,7 @@ def check_params(values: dict):
         sg.popup("请确认文件保存路径是否存在", title="警告")
         return False
     if not ffmpeg_path and not os.path.exists("./utils/ffmpeg.exe"):
-        res = sg.popup_yes_no("未检测到ffmpeg程序，可能无法正常合并视频，是否忽略警告并继续？", title="警告")
+        res = sg.popup_yes_no("未检测到ffmpeg程序，程序将尝试以文件流的方式合并视频，是否继续？", title="警告")
         if res == "No":
             return False
     if ffmpeg_path and not os.path.exists(ffmpeg_path):
@@ -184,7 +184,8 @@ def check_params(values: dict):
             if not isinstance(eval(headers), dict):
                 sg.popup("请确认请求头是否正确", title="警告")
                 return False
-        except Exception as _:
+        except Exception as e:
+            print(e)
             sg.popup("请确认请求头是否正确", title="警告")
             return False
 
@@ -210,15 +211,17 @@ def run():
     ico_path = "./images/ico/m3u8_logo.ico"
     window = sg.Window(f"M3U8下载器（{current_version}）", get_layout(), size=(1200, 620), icon=ico_path)
 
-    instructions = f"""1.若使用M3U8链接，确保url有效；
-2.若使用本地M3U8文档，尽量填写正确的base_url；
-3.若不指定文档保存路径，默认保存在程序所以文件夹；
-4.本程序自带FFmpeg程序，一般无需指定路径；
-5.若要自定义请求头需要填写一个JSON；
+    instructions = f"""1.若使用M3U8链接，确保url以及m3u8分段链接有效；
+2.若使用本地M3U8文档，程序不一定能正确识别base_url，建议手动填写；
+3.若不指定文档保存路径，默认保存在当前路径的m3u8_download文件夹；
+4.完整版程序自带ffmpeg程序，一般无需指定路径；
+5.若要自定义请求头请以JSON的形式表示键值；
 6.建议设置随机代理减少触发反爬机制的概率；
-7.若遇到不能同时下载多个文件可以适当调小线程数（0是不限制）；
+7.有些服务器会限制同时下载个数，可适当调小线程数（0表示不限制）；
+
 该程序完全免费且开源，请勿用于商业用途
 GitHub：https://github.com/panmeibing/python_downloader
+Gitee：https://gitee.com/pan-meibing/python_downloader
 
 当前版本: {current_version}
 """
@@ -240,6 +243,7 @@ GitHub：https://github.com/panmeibing/python_downloader
                 threading.Thread(target=start_download_task, args=(params_dict,), kwargs={"window": window},
                                  daemon=True).start()
         elif event == "key_instruction":
+            print(instructions)
             sg.popup_ok(instructions, title="使用说明")
         elif event == "key_clear":
             print(values)
