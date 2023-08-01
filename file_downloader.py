@@ -1,20 +1,27 @@
 import logging
 import os.path
+import sys
 import threading
 import time
 from contextlib import closing
 
 import requests
 
+from utils.singleton_utils import singleton
 
+
+@singleton
 class MultiDownloader:
-    def __init__(self, url, save_path=None, file_name=None, thread_count=10, headers=None, retry_times=10):
+
+    def __init__(self, url, save_path=None, file_name=None, thread_count=10, headers=None, retry_times=5,
+                 log_sys_out=None):
         self.url = url
         self.headers = headers if isinstance(headers, dict) else dict()
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         self.save_path = save_path if save_path else os.path.join(current_file_path, "multi_download")
         self.total_range = None
-        self.logger = self.get_logger()
+        log_sys_out = sys.stdout if log_sys_out == "sys.stdout" else None
+        self.logger = self.get_logger(log_sys_out)
         self.get_resp_header_info()
         if file_name:
             self.file_name = file_name
@@ -32,18 +39,19 @@ class MultiDownloader:
         self.logger.info(f"init multi task, thread_count:{self.thread_count}")
         self.logger.info(f"init multi task, headers:{self.headers}")
 
-    def get_logger(self):
+    def get_logger(self, stream=None):
         logger = logging.getLogger("MultiDownloader")
         logger.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(asctime)s-%(filename)s-line:%(lineno)d-%(levelname)s-%(process)s: %(message)s")
-        console_handler = logging.StreamHandler()
+        print_fmt = logging.Formatter("%(asctime)s-%(levelname)s-%(process)s: %(message)s")
+        console_handler = logging.StreamHandler(stream)
         console_handler.setLevel(logging.INFO)
-        console_handler.setFormatter(formatter)
+        console_handler.setFormatter(print_fmt)
         if not os.path.exists(self.save_path):
             os.mkdir(self.save_path)
         file_handler = logging.FileHandler(os.path.join(self.save_path, "download.log"), encoding="utf-8")
         file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(formatter)
+        file_fmt = logging.Formatter("%(asctime)s-%(filename)s-line:%(lineno)d-%(levelname)s-%(process)s: %(message)s")
+        file_handler.setFormatter(file_fmt)
         logger.addHandler(console_handler)
         logger.addHandler(file_handler)
         return logger
@@ -112,6 +120,9 @@ class MultiDownloader:
         thread_list = list()
         full_path = os.path.join(self.save_path, self.file_name)
         self.logger.info(f"ready to download, full_path: {full_path}")
+        if os.path.exists(full_path):
+            self.logger.warning(f"file already exists, remove, full_path:{full_path}")
+            os.remove(full_path)
         start_time = time.time()
         with open(full_path, "wb+") as f:
             for i, page in enumerate(self.page_dispatcher(self.total_range)):
