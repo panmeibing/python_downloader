@@ -10,7 +10,6 @@ import requests
 from utils.singleton_utils import singleton
 
 
-@singleton
 class MultiDownloader:
 
     def __init__(self, url, save_path=None, file_name=None, thread_count=10, headers=None, retry_times=5,
@@ -39,6 +38,7 @@ class MultiDownloader:
         self.logger.info(f"init multi task, thread_count:{self.thread_count}")
         self.logger.info(f"init multi task, headers:{self.headers}")
 
+    @singleton
     def get_logger(self, stream=None):
         logger = logging.getLogger("MultiDownloader")
         logger.setLevel(logging.INFO)

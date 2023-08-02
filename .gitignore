@@ -6,6 +6,7 @@ __pycache__/
 m3u8_download/
 multi_download/
 *_download/
+download/
 # C extensions
 *.so
 
